@@ -221,3 +221,4 @@ __marimo__/
 
 .vscode
 data/raw
+data/sp500.db
