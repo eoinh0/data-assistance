@@ -1,2 +1,2 @@
 # data-assistance
-asking questions about data in plain english using FastAPI, SQLite and LLm
+This project lets you ask questions about data i plain english using fastAPI SQLite and LLM
