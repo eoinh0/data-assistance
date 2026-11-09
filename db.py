@@ -22,5 +22,20 @@ def run_query(sql, params=()):
         connection.close()
 
 
+# the tables in the database - used by /schema and the llm prompt
+TABLES = ["companies", "stocks"]
+
+
+# gets each tables column names and types
+# kept here so both the /schema endpoint and the llm prompt can use it
+def get_schema():
+    schema = {}
+    for table in TABLES:
+        # PRAGMA table_info is a sqlite command that lists a tables columns
+        columns = run_query(f"PRAGMA table_info({table})")
+        # only keep the name and type, the rest isnt needed
+        schema[table] = [{"name": col["name"], "type": col["type"]} for col in columns]
+    return schema
+
 if __name__ == "__main__":
     print(run_query("SELECT COUNT(*) AS total FROM companies"))
