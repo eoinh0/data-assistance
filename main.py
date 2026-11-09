@@ -40,3 +40,18 @@ def companies(sector: str | None = None, country: str | None = None, limit: int 
     params.append(limit)
 
     return run_query(sql, params)
+
+# Summary per sector: number of companies, total market cap, and average revenue growth
+@app.get("/sectors")
+def sectors():
+    sql = """
+        SELECT
+            sector,
+            COUNT(*) AS company_count,
+            SUM(marketcap) AS total_marketcap,
+            ROUND(AVG(revenuegrowth), 3) AS avg_revenue_growth
+        FROM companies
+        GROUP BY sector
+        ORDER BY total_marketcap DESC
+    """
+    return run_query(sql)
