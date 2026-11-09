@@ -1,6 +1,5 @@
 # FastAPI app for querying S&P 500 data
-from fastapi import FastAPI
-
+from fastapi import FastAPI, HTTPException, Query
 from db import run_query
 
 app = FastAPI()
@@ -55,3 +54,35 @@ def sectors():
         ORDER BY total_marketcap DESC
     """
     return run_query(sql)
+
+# Daily prices for one stock, newest first, with optional date range
+@app.get("/stocks/{symbol}")
+def stock_prices(
+    symbol: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = Query(100, ge=1, le=1000),
+):
+    symbol = symbol.upper()
+
+    company = run_query("SELECT symbol FROM companies WHERE symbol = ?", (symbol,))
+    if not company:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
+
+    sql = "SELECT date, open, high, low, close, volume FROM stocks WHERE symbol = ?"
+    params = [symbol]
+
+    if start_date:
+        sql += " AND date >= ?"
+        params.append(start_date)
+    if end_date:
+        sql += " AND date <= ?"
+        params.append(end_date)
+
+    sql += " ORDER BY date DESC LIMIT ?"
+    params.append(limit)
+
+    rows = run_query(sql, params)
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No price data for {symbol} in this range")
+    return rows
