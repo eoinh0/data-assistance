@@ -5,8 +5,9 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-# reads the .env file and loads GEMINI_API_KEY into the environment
-load_dotenv()
+# reads the .env file and loads the settings into the environment
+# override=True means .env always wins over anything already set in the terminal
+load_dotenv(override=True)
 
 # model name kept in one place so its easy to change
 # check google ai studio for the current free model names
