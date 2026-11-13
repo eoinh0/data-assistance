@@ -1,10 +1,22 @@
 # FastAPI app for querying S&P 500 data
 from fastapi import FastAPI, HTTPException, Query
 from db import run_query
+from db import get_schema, run_query
+
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from assistant import BadSQLError, LLMError, answer_question
+from db import get_schema, run_query
 
 app = FastAPI()
 
-TABLES = ["companies", "stocks"]
+# what the /ask endpoint expects in the request body
+# Field sets rules - the question cant be empty or longer than 500 characters
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+
+
 
 
 # Health check: confirms the API is running
@@ -13,14 +25,10 @@ def root():
     return {"message": "S&P 500 data assistant is running"}
 
 
-# Return each table's column names and types
+# returns each tables column names and types
 @app.get("/schema")
 def schema():
-    result = {}
-    for table in TABLES:
-        columns = run_query(f"PRAGMA table_info({table})")
-        result[table] = [{"name": col["name"], "type": col["type"]} for col in columns]
-    return result
+    return get_schema()
 
 # List companies, with optional filters for sector and country, largest first
 @app.get("/companies")
@@ -86,3 +94,16 @@ def stock_prices(
     if not rows:
         raise HTTPException(status_code=404, detail=f"No price data for {symbol} in this range")
     return rows
+
+# takes a plain english question, gets the llm to write sql, runs it and explains the result
+# POST because the question is sent in the request body, not the url
+@app.post("/ask")
+def ask(request: AskRequest):
+    try:
+        return answer_question(request.question)
+    except LLMError:
+        # gemini is busy, rate limited or unreachable - not the users fault
+        raise HTTPException(status_code=503, detail="AI service is busy or unavailable, try again shortly")
+    except BadSQLError as error:
+        # the llm wrote sql that was unsafe or wouldnt run
+        raise HTTPException(status_code=400, detail=str(error))
