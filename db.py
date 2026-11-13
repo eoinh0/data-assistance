@@ -37,5 +37,60 @@ def get_schema():
         schema[table] = [{"name": col["name"], "type": col["type"]} for col in columns]
     return schema
 
+# words that change or mess with the database - none of these are allowed
+BLOCKED_WORDS = [
+    "INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
+    "CREATE", "REPLACE", "ATTACH", "DETACH", "PRAGMA",
+]
+
+
+# removes markdown code fences in case the llm wraps the sql in ```sql ... ```
+def clean_sql(text):
+    text = text.strip()
+    # drops the opening fence and the word sql if its there
+    if text.startswith("```"):
+        text = text[3:]
+        if text.lower().startswith("sql"):
+            text = text[3:]
+    # drops the closing fence
+    if text.endswith("```"):
+        text = text[:-3]
+    # removes spaces and a single trailing semicolon
+    return text.strip().rstrip(";").strip()
+
+
+# checks the sql is a single read-only query before it gets run
+# returns True if its safe, False if not
+def is_safe_sql(sql):
+    upper = sql.upper()
+
+    # a semicolon left in the middle means more than one statement
+    if ";" in upper:
+        return False
+
+    # must start with SELECT, or WITH (used for more complex select queries)
+    if not (upper.startswith("SELECT") or upper.startswith("WITH")):
+        return False
+
+    # splits into words and checks none of them are on the blocked list
+    # checking whole words so a column like "updated_date" doesnt get blocked
+    words = upper.replace("(", " ").replace(")", " ").replace(",", " ").split()
+    if any(word in BLOCKED_WORDS for word in words):
+        return False
+
+    return True
+
+# quick tests for the safety check - run with "python db.py"
 if __name__ == "__main__":
-    print(run_query("SELECT COUNT(*) AS total FROM companies"))
+    tests = [
+        "SELECT * FROM companies",                  # should be True
+        "select sector from companies;",            # should be True (trailing ; removed by clean_sql)
+        "WITH x AS (SELECT 1) SELECT * FROM x",     # should be True
+        "DROP TABLE stocks",                        # should be False
+        "SELECT 1; DROP TABLE stocks",              # should be False
+        "DELETE FROM companies",                    # should be False
+        "```sql\nSELECT * FROM stocks\n```",        # should be True after cleaning
+    ]
+    for test in tests:
+        cleaned = clean_sql(test)
+        print(is_safe_sql(cleaned), "|", cleaned.replace("\n", " "))
