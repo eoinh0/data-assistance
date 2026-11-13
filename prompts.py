@@ -1,5 +1,5 @@
 # prompts sent to the llm - kept separate so theyre easy to read and change
-
+import json 
 
 # turns the schema dictionary into plain text the llm can read
 # e.g. "companies: symbol (TEXT), sector (TEXT), ..."
@@ -32,6 +32,27 @@ Rules:
 
 Question: {question}
 SQL:"""
+
+# builds the prompt that asks the llm to explain the query results in plain english
+# only sends the first 50 rows so the prompt doesnt get too big
+def build_answer_prompt(question, sql, rows):
+    sample = json.dumps(rows[:50], default=str)
+    return f"""You are a helpful data assistant. Answer the question using only the query results below.
+
+Question: {question}
+
+SQL used: {sql}
+
+Results ({len(rows)} rows, first 50 shown):
+{sample}
+
+Rules:
+- answer in plain english in 1 to 3 sentences
+- only use numbers that are in the results, dont make anything up
+- if the results are empty, say no data was found and that price data only covers some stocks
+- format large numbers so theyre easy to read, e.g. 3.2 trillion instead of 3200000000000
+
+Answer:"""
 
 # quick test - prints the full prompt so you can read it
 if __name__ == "__main__":
