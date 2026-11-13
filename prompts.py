@@ -28,7 +28,10 @@ Rules:
 - return only the SQL query, no explanation and no markdown
 - only use SELECT, never change the data
 - only use the tables and columns listed above
+- never use SELECT *, only select the columns needed to answer the question
+- never select longbusinesssummary unless the question asks about what a company does
 - add LIMIT 100 unless the question asks for a single total, count or average
+- if the question asks to change, delete or add data, reply with exactly: SELECT 'Changing data is not allowed' AS message
 
 Question: {question}
 SQL:"""
